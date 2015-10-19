@@ -1,15 +1,15 @@
 ﻿__author__ = 'rex686568'
 
 # 1.input with hand
-#name_server_list = ['202.117.0.20',
-#                    '202.117.0.21']
+name_server_list = ['202.117.0.20',
+                    '202.117.0.21']
 
 # 2.input from file
-name_server_list = []
-for line in open('importName_server_list.txt').readlines():
-    name_server_list.append(str(line).strip())
+#name_server_list = []
+#for line in open('importName_server_list.txt').readlines():
+#    name_server_list.append(str(line).strip())
 
-minTTL = 60 * 60 * 4
+minTTL = 60 * 60 * 2
 
 import socket
 import dns.resolver
@@ -89,74 +89,43 @@ def getAnswer(domain, q, name_server):
 
     numofthreads-=1
 
-def dumpProgress():
-    global domains
-    print 'progress updating'
-    DumpWait = 0
-    save_domains = domains
-    dumper = []
-    while not save_domains.empty():
-        dumper.append(save_domains.get())
-    progress = open('progress','w')
-    pickle.dump(dumper,progress)
-    print 'progress updated'
-
-
 f = open("maxTTL.txt")
 domains = Queue.PriorityQueue()
 currenttimeinseconds = time.time()
 
-if os.path.exists("progress"):
-    progress = open('progress','r')
-    save_domains = pickle.load(progress)
-    for i in save_domains:
-        domains.put(i)
-    print 'progress loaded'
-else:
-    for line in f.readlines():
-        urlandmaxTTL = str(line).strip().split()
-        url = urlandmaxTTL[0]
-        maxTTL = int(urlandmaxTTL[1])
-        if maxTTL != 0:
-            if maxTTL < minTTL:  #waive too short ones
-                maxTTL = minTTL
-            for name_server in name_server_list:
-                domains.put((currenttimeinseconds,#+ maxTTL
-                             [url,
-                              maxTTL,
-                              name_server]))
-    save_domains = domains
-    dumper = []
-    while not save_domains.empty():
-        dumper.append(save_domains.get())
-    progress = open('progress','w')
-    pickle.dump(dumper,progress)
-    print 'progress created'
+
+for line in f.readlines():
+    urlandmaxTTL = str(line).strip().split()
+    url = urlandmaxTTL[0]
+    maxTTL = int(urlandmaxTTL[1])
+    if maxTTL != 0:
+        if maxTTL < minTTL:  #waive too short ones
+            maxTTL = minTTL
+        for name_server in name_server_list:
+            domains.put((currenttimeinseconds,#+ maxTTL
+                            [url,
+                            maxTTL,
+                            name_server]))
 
 q = Queue.Queue()
 
 
+pastwrongCnt=0
 
-pastwrongCnt = 0
-pastlogsCnt = 0
-Dumpwait = 0
-threadspool = []
 
 while True:
     
     currenttimeinseconds = time.time()
+
     stuff = domains.get()
     deltaSeconds = stuff[0] - currenttimeinseconds
     if  deltaSeconds > 0:
         domains.put(stuff)
-        if deltaSeconds > 60 * 60:
-            print 'sleep',deltaSeconds
         time.sleep(deltaSeconds)
-        
     else:
         domain = stuff[1][0]
         maxTTL = stuff[1][1]
-        DNS = stuff[1][2]
+        DNS=stuff[1][2]
         refreshstuff = (maxTTL + currenttimeinseconds,
                       stuff[1])
         t = threading.Thread(target=getAnswer,
@@ -167,46 +136,26 @@ while True:
         t.start()
         domains.put(refreshstuff)
 
-        threadspool.append(t)
 
-    #if too many ports used,wait for threads joining, can not fix timeout
-    #problem of cellular now
+
+    numofthreads += 1
+
+    if numofthreads > maxthreads:
+            numofthreads = 0
+        #    time.sleep(Timeout+1)
     
-    #numofthreads += 1
-    #if numofthreads > maxthreads:
-    #    print 'waiting for threads joining'
-    #    while len(threadspool) !=0:
-    #        threadspool.pop().join()
-    #    numofthreads = 0
+    f = open("remainTTL.csv", mode='a')
+    while not q.empty():
+        line = q.get()
+        #print(line)
+        f.write(line + '\n')
+    f.close()
 
-    
+    f = open("log.txt", mode='a')
+    while len(alllogs) != 0:
+        f.write(alllogs.pop())    
+    f.close()
 
-    if pastwrongCnt + 100000 < wrongCnt:
+    if pastwrongCnt!=wrongCnt:
         print 'errorCnt',str(wrongCnt)
-        pastwrongCnt = wrongCnt
-
-    if pastlogsCnt + 100 < logsCnt:
-        print 'logsCnt',str(logsCnt)
-        pastlogsCnt = logsCnt
-
-        #write to disk
-        f = open("remainTTL.csv", mode='a')
-        while not q.empty():
-            line = q.get()
-            #print(line)
-            f.write(line + '\n')
-        f.close()
-
-        f = open("log.txt", mode='a')
-        while len(alllogs) != 0:
-            f.write(alllogs.pop())    
-        f.close()
-
-        Dumpwait+=1
-
-        if Dumpwait > 30:
-            Dumpwait = 0
-            t = threading.Thread(target=dumpProgress)
-            t.daemon = True
-            t.start()
-            
+        pastwrongCnt=wrongCnt
