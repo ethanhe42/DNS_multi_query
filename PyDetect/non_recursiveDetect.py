@@ -58,21 +58,22 @@ def getAnswer(domain, q, name_server):
             if ttl == 0:
                 ttl = 1
             q.put(domain + ',' + name_server + ',' + str(response.answer[0].ttl) + ',' + str(currenttimeinseconds))
+            # all logs
+
+            log = '  ' + '\n'
+            log+=domain + ' ' + str(currenttimeinseconds) + '\n'
+            for i in response.answer:
+                log+= str(i) + '\n'
+            for i in response.authority:
+                log+= str(i) + '\n'
+            for i in response.additional:
+                log+= str(i) + '\n'
+            alllogs.append(log)
+            logsCnt+=1
+
         else:
             q.put(domain + ',' + name_server + ',' + str(0) + ',' + str(currenttimeinseconds))
 
-        # all logs
-
-        log = '  ' + '\n'
-        log+=domain + ' ' + str(currenttimeinseconds) + '\n'
-        for i in response.answer:
-            log+= str(i) + '\n'
-        for i in response.authority:
-            log+= str(i) + '\n'
-        for i in response.additional:
-            log+= str(i) + '\n'
-        alllogs.append(log)
-        logsCnt+=1
 
     except dns.exception.Timeout:
         wrongCnt += 1
