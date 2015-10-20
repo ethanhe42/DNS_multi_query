@@ -9,7 +9,7 @@ name_server_list = []
 for line in open('importName_server_list.txt').readlines():
     name_server_list.append(str(line).strip())
 
-minTTL = 60 * 60 * 4
+minTTL = 60 * 60 * 1
 
 import socket
 import dns.resolver
@@ -23,6 +23,7 @@ import threading
 import time
 import pickle
 import os
+import shutil
 
 Timeout = 8
 maxthreads = 2000
@@ -130,7 +131,9 @@ else:
         dumper.append(save_domains.get())
     progress = open('progress','w')
     pickle.dump(dumper,progress)
+    shutil.copyfile('progress','progress-copy')
     print 'progress created'
+
 
 q = Queue.Queue()
 
